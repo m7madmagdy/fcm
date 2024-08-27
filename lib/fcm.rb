@@ -1,11 +1,14 @@
-require "faraday"
-require "cgi"
-require "json"
-require "googleauth"
+# frozen_string_literal: true
 
+require 'faraday'
+require 'cgi'
+require 'json'
+require 'googleauth'
+
+# rubocop:disable Metrics/ClassLength
 class FCM
-  BASE_URI_V1 = "https://fcm.googleapis.com/v1/projects/"
-  TOPIC_REGEX = /[a-zA-Z0-9\-_.~%]+/
+  BASE_URI_V1 = 'https://fcm.googleapis.com/v1/projects/'
+  TOPIC_REGEX = /[a-zA-Z0-9\-_.~%]+/.freeze
   DEFAULT_TIMEOUT = 30
 
   def initialize(json_key_path, project_name)
@@ -16,7 +19,7 @@ class FCM
   def send_notification_v1(message)
     return if @project_name.empty?
 
-    post_body = { 'message': message }
+    post_body = { message: message }
     extra_headers = {
       'Authorization' => "Bearer #{jwt_token}"
     }
@@ -59,10 +62,10 @@ class FCM
 
     message = {
       tokens: registration_tokens,
-      options
+      **options
     }
 
-    post_body = { 'message': message }
+    post_body = { message: message }
     extra_headers = {
       'Authorization' => "Bearer #{jwt_token}"
     }
@@ -82,7 +85,7 @@ class FCM
       request: { timeout: DEFAULT_TIMEOUT }
     ) do |faraday|
       faraday.adapter Faraday.default_adapter
-      faraday.headers["Content-Type"] = "application/json"
+      faraday.headers['Content-Type'] = 'application/json'
       extra_headers.each do |key, value|
         faraday.headers[key] = value
       end
@@ -90,25 +93,27 @@ class FCM
     yield connection
   end
 
+  # rubocop:disable Metrics/CyclomaticComplexity
   def build_response(response)
     body = response.body || {}
     response_hash = { body: body, headers: response.headers, status_code: response.status }
 
     case response.status
     when 200
-      response_hash[:response] = "success"
+      response_hash[:response] = 'success'
       response_hash[:parsed_body] = JSON.parse(body) unless body.empty?
     when 400
-      response_hash[:response] = "Invalid JSON or request fields."
+      response_hash[:response] = 'Invalid JSON or request fields.'
     when 401
-      response_hash[:response] = "Authentication error."
+      response_hash[:response] = 'Authentication error.'
     when 503
-      response_hash[:response] = "Server temporarily unavailable."
+      response_hash[:response] = 'Server temporarily unavailable.'
     when 500..599
-      response_hash[:response] = "Internal FCM server error."
+      response_hash[:response] = 'Internal FCM server error.'
     end
     response_hash
   end
+  # rubocop:enable Metrics/CyclomaticComplexity
 
   def validate_condition?(condition)
     validate_condition_format?(condition) && validate_condition_topics?(condition)
@@ -117,7 +122,7 @@ class FCM
   def validate_condition_format?(condition)
     bad_characters = condition.gsub(
       /(topics|in|\s|\(|\)|(&&)|[!]|(\|\|)|'([a-zA-Z0-9\-_.~%]+)')/,
-      ""
+      ''
     )
     bad_characters.empty?
   end
@@ -128,13 +133,13 @@ class FCM
   end
 
   def jwt_token
-    scope = "https://www.googleapis.com/auth/firebase.messaging"
+    scope = 'https://www.googleapis.com/auth/firebase.messaging'
     @authorizer ||= Google::Auth::ServiceAccountCredentials.make_creds(
       json_key_io: json_key,
-      scope: scope,
+      scope: scope
     )
     token = @authorizer.fetch_access_token!
-    token["access_token"]
+    token['access_token']
   end
 
   def json_key
@@ -145,3 +150,4 @@ class FCM
                   end
   end
 end
+# rubocop:enable Metrics/ClassLength
